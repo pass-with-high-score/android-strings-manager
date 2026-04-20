@@ -28,4 +28,11 @@ intellijPlatform {
             """.trimIndent()
         }
     }
+
+    publishing {
+        token = providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
+        channels = providers.environmentVariable("JETBRAINS_MARKETPLACE_CHANNEL")
+            .orElse("default")
+            .map { listOf(it) }
+    }
 }

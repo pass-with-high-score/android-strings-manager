@@ -32,6 +32,9 @@ jobs:
       - name: Build plugin
         run: ./gradlew buildPlugin -Pversion=${{ steps.ver.outputs.version }}
 
+      - name: Verify plugin
+        run: ./gradlew verifyPlugin -Pversion=${{ steps.ver.outputs.version }}
+
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
@@ -48,3 +51,9 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
           files: build/distributions/*.zip
+
+      - name: Publish to JetBrains Marketplace
+        env:
+          JETBRAINS_MARKETPLACE_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
+          JETBRAINS_MARKETPLACE_CHANNEL: ${{ contains(github.ref_name, '-') && 'beta' || 'default' }}
+        run: ./gradlew publishPlugin -Pversion=${{ steps.ver.outputs.version }}
