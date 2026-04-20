@@ -1,0 +1,33 @@
+<idea-plugin>
+    <id>app.pwhs.androidstringsmanager</id>
+    <name>Android Strings Manager</name>
+    <vendor email="nguyenquangminh570@gmail.com">pwhs</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <resource-bundle>messages.MyBundle</resource-bundle>
+
+    <actions>
+        <group id="app.pwhs.androidstringsmanager.MainGroup"
+               text="Android Strings Manager"
+               description="Android strings.xml utilities"
+               popup="true"
+               icon="AllIcons.Nodes.ResourceBundle">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+
+            <action id="app.pwhs.androidstringsmanager.CleanAction"
+                    class="app.pwhs.androidstringsmanager.actions.CleanAction"
+                    text="Clean Non-Translatable From Locales"
+                    description="Remove translatable=false entries from every values-*/strings.xml"/>
+            <action id="app.pwhs.androidstringsmanager.ExportMissingAction"
+                    class="app.pwhs.androidstringsmanager.actions.ExportMissingAction"
+                    text="Export Missing Translations (CSV)"
+                    description="Write a CSV of keys missing in each locale"/>
+            <action id="app.pwhs.androidstringsmanager.PruneAction"
+                    class="app.pwhs.androidstringsmanager.actions.PruneAction"
+                    text="Find Unused Strings..."
+                    description="Scan source for R.string.X and @string/X and list/remove unused keys"/>
+        </group>
+    </actions>
+</idea-plugin>
