@@ -1,18 +1,18 @@
 package app.pwhs.androidstringsmanager.services
 
-import com.intellij.application.options.CodeStyle
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
-import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.util.JDOMUtil
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiManager
+import com.intellij.psi.codeStyle.CodeStyleManager
 import org.jdom.Element
-import org.jdom.output.Format
-import org.jdom.output.XMLOutputter
-import java.io.StringWriter
 
 data class LocaleMissing(val locale: String, val name: String, val defaultValue: String)
 
@@ -46,18 +46,16 @@ class StringsResService(private val project: Project) {
         vf.inputStream.use { JDOMUtil.load(it) }
 
     private fun saveRoot(vf: VirtualFile, root: Element) {
-        val indent = ReadAction.compute<Int, RuntimeException> {
-            runCatching { CodeStyle.getIndentOptions(project, vf).INDENT_SIZE }
-                .getOrDefault(4)
-                .takeIf { it > 0 } ?: 4
-        }
-        val format = Format.getPrettyFormat()
-            .setIndent(" ".repeat(indent))
-            .setLineSeparator("\n")
-        val body = StringWriter().also { XMLOutputter(format).output(root, it) }.toString()
+        val body = JDOMUtil.writeElement(root, "\n")
         val text = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n$body\n"
-        WriteAction.runAndWait<Throwable> {
-            VfsUtil.saveText(vf, text)
+        ApplicationManager.getApplication().invokeAndWait {
+            WriteCommandAction.runWriteCommandAction(project, "Update strings.xml", null, Runnable {
+                VfsUtil.saveText(vf, text)
+                val docManager = PsiDocumentManager.getInstance(project)
+                docManager.commitAllDocuments()
+                val psi = PsiManager.getInstance(project).findFile(vf)
+                if (psi != null) CodeStyleManager.getInstance(project).reformat(psi)
+            })
         }
     }
 
