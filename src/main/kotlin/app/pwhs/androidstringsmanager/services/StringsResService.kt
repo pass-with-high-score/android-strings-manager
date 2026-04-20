@@ -1,7 +1,7 @@
 package app.pwhs.androidstringsmanager.services
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
@@ -147,7 +147,7 @@ class StringsResService(private val project: Project) {
         return PruneResult(entries.size, used.size, unused)
     }
 
-    private fun collectUsedNames(defaultXml: VirtualFile): Set<String> = ReadAction.compute<Set<String>, RuntimeException> {
+    private fun collectUsedNames(defaultXml: VirtualFile): Set<String> = runReadAction {
         val used = mutableSetOf<String>()
         val index = ProjectFileIndex.getInstance(project)
         index.iterateContent { vf ->
