@@ -22,6 +22,30 @@ data class PruneResult(
     val unused: List<Pair<String, String>>,
 )
 
+data class CsvRow(val locale: String, val name: String, val value: String)
+
+data class ImportStats(
+    val added: Int,
+    val updated: Int,
+    val filesTouched: Int,
+    val createdLocales: List<String>,
+    val skippedRows: Int,
+)
+
+data class PlaceholderIssue(
+    val name: String,
+    val locale: String,
+    val defaultPlaceholders: List<String>,
+    val localePlaceholders: List<String>,
+    val defaultText: String,
+    val localeText: String,
+)
+
+data class LocaleCoverage(val locale: String, val translated: Int, val total: Int) {
+    val missing: Int get() = total - translated
+    val percent: Int get() = if (total == 0) 100 else (translated * 100 / total)
+}
+
 @Service(Service.Level.PROJECT)
 class StringsResService(private val project: Project) {
 
@@ -31,6 +55,7 @@ class StringsResService(private val project: Project) {
         private val AT_STRING = Regex("""@string/([A-Za-z0-9_]+)""")
         private val TOOLS_KEEP = Regex("""tools:keep\s*=\s*"([^"]*)"""")
         private val SKIP_DIRS = setOf("build", ".gradle", ".idea", "generated", ".git", "node_modules")
+        private val PLACEHOLDER_RE = Regex("""%(?:\d+\$)?[a-zA-Z]|%%""")
     }
 
     fun defaultStringsFile(res: VirtualFile): VirtualFile? =
@@ -171,6 +196,123 @@ class StringsResService(private val project: Project) {
         String(contentsToByteArray(), charset)
     } catch (_: Throwable) {
         null
+    }
+
+    fun importCsv(res: VirtualFile, rows: List<CsvRow>): ImportStats {
+        val byLocale = rows.groupBy { it.locale.trim() }.filterKeys { it.isNotEmpty() }
+        var added = 0
+        var updated = 0
+        var skipped = 0
+        var filesTouched = 0
+        val createdLocales = mutableListOf<String>()
+        for ((locale, entries) in byLocale) {
+            val file = ensureLocaleFile(res, locale) { createdLocales += locale }
+            if (file == null) {
+                skipped += entries.size
+                continue
+            }
+            val root = loadRoot(file)
+            var changed = false
+            for (row in entries) {
+                val name = row.name.trim()
+                if (name.isEmpty()) { skipped++; continue }
+                val existing = root.children.firstOrNull { it.name == "string" && it.getAttributeValue("name") == name }
+                if (existing == null) {
+                    val el = Element("string").apply {
+                        setAttribute("name", name)
+                        text = row.value
+                    }
+                    root.addContent(el)
+                    added++
+                    changed = true
+                } else {
+                    if ((existing.text ?: "") != row.value) {
+                        existing.text = row.value
+                        updated++
+                        changed = true
+                    } else {
+                        skipped++
+                    }
+                }
+            }
+            if (changed) {
+                saveRoot(file, root)
+                filesTouched++
+            }
+        }
+        return ImportStats(added, updated, filesTouched, createdLocales, skipped)
+    }
+
+    private fun ensureLocaleFile(res: VirtualFile, locale: String, onCreated: () -> Unit): VirtualFile? {
+        val dirName = "values-$locale"
+        val existingDir = res.findChild(dirName)
+        if (existingDir != null) return existingDir.findChild("strings.xml") ?: createStringsXml(existingDir, onCreated = {})
+        return createStringsXml(res, parentName = dirName, onCreated = onCreated)
+    }
+
+    private fun createStringsXml(parentOrRes: VirtualFile, parentName: String? = null, onCreated: () -> Unit): VirtualFile? {
+        var created: VirtualFile? = null
+        ApplicationManager.getApplication().invokeAndWait {
+            WriteCommandAction.runWriteCommandAction(project, "Create strings.xml", null, Runnable {
+                val parent = if (parentName != null) parentOrRes.createChildDirectory(this, parentName) else parentOrRes
+                val file = parent.createChildData(this, "strings.xml")
+                VfsUtil.saveText(file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n</resources>\n")
+                created = file
+                if (parentName != null) onCreated()
+            })
+        }
+        return created
+    }
+
+    fun checkPlaceholders(res: VirtualFile): List<PlaceholderIssue> {
+        val default = defaultStringsFile(res) ?: return emptyList()
+        val defaults = loadRoot(default).children
+            .filter { it.name == "string" }
+            .mapNotNull { el ->
+                val name = el.getAttributeValue("name") ?: return@mapNotNull null
+                if (el.getAttributeValue("translatable")?.equals("false", true) == true) return@mapNotNull null
+                name to (el.text ?: "")
+            }
+            .toMap()
+        val issues = mutableListOf<PlaceholderIssue>()
+        for (f in localeStringsFiles(res)) {
+            val locale = f.parent.name.removePrefix("values-")
+            for (el in loadRoot(f).children) {
+                if (el.name != "string") continue
+                val name = el.getAttributeValue("name") ?: continue
+                val defText = defaults[name] ?: continue
+                val locText = el.text ?: ""
+                val dp = extractPlaceholders(defText)
+                val lp = extractPlaceholders(locText)
+                if (dp.sorted() != lp.sorted()) {
+                    issues += PlaceholderIssue(name, locale, dp, lp, defText, locText)
+                }
+            }
+        }
+        return issues
+    }
+
+    private fun extractPlaceholders(s: String): List<String> =
+        PLACEHOLDER_RE.findAll(s).map { it.value }.filter { it != "%%" }.toList()
+
+    fun coverage(res: VirtualFile): List<LocaleCoverage> {
+        val default = defaultStringsFile(res) ?: return emptyList()
+        val names = loadRoot(default).children
+            .filter { it.name == "string" && it.getAttributeValue("translatable")?.equals("false", true) != true }
+            .mapNotNull { it.getAttributeValue("name") }
+            .toSet()
+        val total = names.size
+        val out = mutableListOf<LocaleCoverage>()
+        for (f in localeStringsFiles(res)) {
+            val locale = f.parent.name.removePrefix("values-")
+            val have = loadRoot(f).children
+                .filter { it.name == "string" }
+                .mapNotNull { it.getAttributeValue("name") }
+                .filter { it in names }
+                .toSet()
+            out += LocaleCoverage(locale, have.size, total)
+        }
+        return out
     }
 }
 

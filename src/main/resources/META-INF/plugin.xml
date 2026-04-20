@@ -28,6 +28,18 @@
                     class="app.pwhs.androidstringsmanager.actions.PruneAction"
                     text="Find Unused Strings..."
                     description="Scan source for R.string.X and @string/X and list/remove unused keys"/>
+            <action id="app.pwhs.androidstringsmanager.ImportCsvAction"
+                    class="app.pwhs.androidstringsmanager.actions.ImportCsvAction"
+                    text="Import Translations From CSV..."
+                    description="Write values from a CSV (locale,name,value) into values-*/strings.xml"/>
+            <action id="app.pwhs.androidstringsmanager.CheckPlaceholdersAction"
+                    class="app.pwhs.androidstringsmanager.actions.CheckPlaceholdersAction"
+                    text="Check Placeholder Consistency"
+                    description="Report translations whose %s / %d placeholders differ from the default locale"/>
+            <action id="app.pwhs.androidstringsmanager.CoverageAction"
+                    class="app.pwhs.androidstringsmanager.actions.CoverageAction"
+                    text="Show Translation Coverage"
+                    description="Per-locale table of translated / missing / percentage"/>
         </group>
     </actions>
 </idea-plugin>
