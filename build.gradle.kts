@@ -18,12 +18,13 @@ intellijPlatform {
     pluginConfiguration {
         description = providers.provider {
             """
-            <p>Android Strings Manager — tiện ích quản lý <code>strings.xml</code> cho dự án Android:</p>
+            <p>Android Strings Manager — utilities for managing <code>strings.xml</code> in Android projects:</p>
             <ul>
-              <li><b>Clean</b>: xoá các entry <code>translatable="false"</code> lẫn trong <code>values-*/strings.xml</code>.</li>
-              <li><b>Export missing</b>: xuất CSV các key bị thiếu dịch theo locale.</li>
-              <li><b>Prune unused</b>: quét source tìm <code>R.string.X</code>/<code>@string/X</code>, liệt kê hoặc xoá các key không dùng.</li>
+              <li><b>Clean</b>: remove entries marked <code>translatable="false"</code> from every <code>values-*/strings.xml</code>.</li>
+              <li><b>Export missing</b>: export a CSV of keys missing a translation in each locale.</li>
+              <li><b>Prune unused</b>: scan source for <code>R.string.X</code> / <code>@string/X</code> references and list or delete unreferenced keys.</li>
             </ul>
+            <p>Invoke from <b>Tools → Android Strings Manager</b> or by right-clicking a <code>res/</code> folder in the Project view.</p>
             """.trimIndent()
         }
     }
