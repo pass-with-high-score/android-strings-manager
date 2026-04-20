@@ -49,4 +49,4 @@ If the action is invoked from a file or folder outside a `res/` tree, the plugin
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE).
